@@ -1,0 +1,100 @@
+services:
+  # PostgreSQL with pgvector extension
+  postgres:
+    image: pgvector/pgvector:pg14
+    container_name: postgres
+    environment:
+      POSTGRES_DB: rag_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - rag-network
+
+  # Arize Phoenix for observability
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: phoenix
+    ports:
+      - "6006:6006"
+    environment:
+      - PHOENIX_HOST=0.0.0.0
+      - PHOENIX_PORT=6006
+    volumes:
+      - phoenix_data:/app/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - rag-network
+
+  # CrewAI RAG API service
+  rag-api:
+    build: .
+    container_name: crewai_rag_api
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/rag_db
+      - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_USER=postgres
+      - PG_PASSWORD=postgres
+      - PG_DATABASE=rag_db
+      - RAG_API_PORT=8000
+      - RAG_API_HOST=0.0.0.0
+      - OLLAMA_BASE_URL=http://ollama:11434
+    ports:
+      - "8001:8000"
+    depends_on:
+      - postgres
+      - phoenix
+      - ollama
+    restart: always
+    networks:
+      - rag-network
+
+  # Ollama service for local LLM
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: always
+    networks:
+      - rag-network
+
+  # OpenWebUI frontend service
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    environment:
+      - OPENAI_API_BASE_URL=http://rag-api:8000/v1
+      - OPENAI_API_KEY=sk-dummy-key
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui-data:/app/backend/data
+    depends_on:
+      - rag-api
+    restart: always
+    networks:
+      - rag-network
+
+volumes:
+  postgres_data:
+  open-webui-data:
+  phoenix_data:
+  ollama_data:
+
+networks:
+  rag-network:
+    driver: bridge

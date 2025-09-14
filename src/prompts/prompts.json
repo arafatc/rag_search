@@ -1,0 +1,6 @@
+{
+  "research_task": "Use the document retrieval tool to find information for the query. Focus on accurate facts, specific regulations, and precise details.",
+  "synthesis_task": "Based on the provided document context, answer the query. Keep response under 100 words. IMPORTANT: Include the SOURCES_INFO from the document context at the end.",
+  "research_with_context": "Previous conversation context:\n{conversation_context}\n\nCurrent question: '{query}'\n\nUse the document retrieval tool to find information for the current question. Consider the conversation history for context if relevant.",
+  "synthesis_with_context": "Previous conversation:\n{conversation_context}\n\nCurrent question: '{query}'\n\nBased on the document context, answer the current question. If relevant, briefly reference our previous conversation. Keep response under 100 words.\nIMPORTANT: Include the SOURCES_INFO from the document context at the end."
+}

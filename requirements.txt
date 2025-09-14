@@ -1,0 +1,172 @@
+# Consolidated Requirements for Enhanced Document Indexer
+# Updated based on actual installed packages in container environment
+# Combines all dependencies from requirements_rag_full.txt, requirements_fastapi.txt, and Pipfile
+
+# ===================== CORE LLAMAINDEX =====================
+llama-index==0.14.0
+llama-index-core==0.14.1
+llama-index-cli==0.5.1
+
+# ===================== DOCUMENT PROCESSING =====================
+# Note: docling packages were removed as they're not currently installed
+pypdf==6.0.0
+pdfplumber==0.11.7
+pdfminer.six==20250506
+
+# ===================== LLM PROVIDERS =====================
+llama-index-llms-ollama==0.7.3
+ollama==0.5.3
+
+# ===================== EMBEDDING PROVIDERS =====================
+llama-index-embeddings-ollama==0.8.3
+
+# ===================== VECTOR & DOCUMENT STORES =====================
+llama-index-vector-stores-postgres==0.6.6
+llama-index-storage-docstore-postgres==0.4.1
+llama-index-storage-kvstore-postgres==0.4.1
+
+# ===================== CREWAI SYSTEM =====================
+# Updated to match actual installed versions
+crewai==0.186.1
+# Note: crewai-tools removed as it's not currently installed in container
+
+# ===================== ADDITIONAL CREWAI DEPENDENCIES =====================
+# These may be needed depending on crewai functionality used
+dataclasses-json>=0.6.7
+marshmallow>=3.26.0
+dirtyjson>=1.0.8
+jsonpath-ng>=1.7.0
+
+# ===================== ML & EMBEDDING MODELS =====================
+sentence-transformers>=2.2.2
+torch==2.3.0
+torchaudio==2.3.0
+torchvision==0.18.0
+tokenizers==0.22.0
+chromadb==1.0.21
+scikit-learn==1.7.2
+sentencepiece==0.2.1
+
+# ===================== RETRIEVAL & SEARCH =====================
+rank-bm25==0.2.2
+llama-index-retrievers-bm25==0.6.5
+bm25s==0.2.14
+
+# ===================== DATABASE =====================
+psycopg2-binary==2.9.10
+pgvector==0.4.1
+sqlalchemy==2.0.43
+asyncpg==0.30.0
+
+# ===================== DATA PROCESSING =====================
+numpy>=1.26.0
+pandas==2.2.3
+pyarrow==21.0.0
+
+# ===================== ASYNC & HTTP UTILITIES =====================
+aiohttp==3.12.15
+requests==2.32.5
+httpx==0.28.1
+uvloop==0.21.0
+
+# ===================== UTILITIES =====================
+python-dotenv==1.1.1
+pydantic==2.11.9
+pydantic-core==2.33.2
+python-dateutil>=2.9.0
+pytz>=2025.2
+regex>=2025.9.0
+tqdm>=4.67.0
+
+# ===================== CLI TOOLS =====================
+rich==14.1.0
+click==8.2.1
+typer==0.17.4
+
+# ===================== TESTING =====================
+pytest==8.4.2
+pytest-asyncio==1.2.0
+httpx==0.28.1
+
+# ===================== EVALUATION & OBSERVABILITY =====================
+# Updated to match installed versions
+arize-phoenix==11.32.1
+arize-phoenix-client==1.18.2
+arize-phoenix-evals==0.29.0
+arize-phoenix-otel==0.13.1
+openinference-instrumentation==0.1.38
+openinference-semantic-conventions==0.1.21
+
+# ===================== OPENTELEMETRY (OBSERVABILITY) =====================
+# Core OpenTelemetry packages for tracing and monitoring
+opentelemetry-api>=1.37.0
+opentelemetry-sdk>=1.37.0
+opentelemetry-exporter-otlp>=1.37.0
+opentelemetry-exporter-otlp-proto-common>=1.37.0
+opentelemetry-exporter-otlp-proto-grpc>=1.37.0
+opentelemetry-exporter-otlp-proto-http>=1.37.0
+opentelemetry-proto>=1.37.0
+opentelemetry-semantic-conventions>=0.58b0
+opentelemetry-instrumentation>=0.58b0
+opentelemetry-instrumentation-asgi>=0.58b0
+opentelemetry-instrumentation-fastapi>=0.58b0
+opentelemetry-util-http>=0.58b0
+
+# ===================== FASTAPI WEB FRAMEWORK =====================
+fastapi==0.116.1
+uvicorn==0.35.0
+python-multipart==0.0.20
+starlette==0.47.3
+
+# ===================== ADDITIONAL CORE DEPENDENCIES =====================
+# These were found to be installed and are likely required
+litellm==1.74.9
+instructor==1.11.3
+tenacity==9.1.2
+backoff==2.2.1
+jsonschema==4.25.1
+protobuf==6.32.1
+grpcio==1.74.0
+filelock>=3.0.0
+
+# ===================== PYTHON CORE DEPENDENCIES (needed for local installs) =====================
+# These are included in conda base image but needed explicitly for local pip installs
+setuptools>=65.0.0
+wheel>=0.38.0
+pip>=23.0.0
+six>=1.17.0
+certifi>=2025.8.3
+urllib3>=2.5.0
+charset-normalizer>=3.4.0
+idna>=3.10
+attrs>=25.0.0
+packaging>=25.0
+platformdirs>=4.0.0
+zipp>=3.23.0
+importlib-metadata>=8.0.0
+
+# ===================== SYSTEM AND FILE PROCESSING =====================
+# Core system utilities needed for file operations
+lxml>=5.0.0
+pillow>=11.0.0
+cffi>=1.17.0
+pycparser>=2.22
+cryptography>=45.0.0
+bcrypt>=4.3.0
+
+# ===================== ASYNC AND CONCURRENCY =====================
+# Core async and threading utilities
+asyncio-runner>=1.2.0
+greenlet>=3.2.0
+nest-asyncio>=1.6.0
+
+# ===================== DATA SCIENCE ECOSYSTEM =====================
+# Core scientific computing (needed for ML operations)
+scipy>=1.15.0
+joblib>=1.5.0
+threadpoolctl>=3.6.0
+sympy>=1.14.0
+
+# ===================== DEVELOPMENT (OPTIONAL) =====================
+black==25.1.0
+flake8==7.3.0
