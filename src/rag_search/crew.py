@@ -49,23 +49,56 @@ except ImportError:
 if sys.platform == "win32":
     os.environ["PYTHONIOENCODING"] = "utf-8"
 
-def create_rag_crew(query: str, conversation_context: str = None):
+def create_rag_crew(query: str, conversation_context: str = None, strategy: str = None):
     """Create and execute a RAG crew for document search and analysis."""
     
+    # Use environment variable for default strategy if none provided
+    if strategy is None:
+        strategy = os.getenv("DEFAULT_RAG_STRATEGY", "semantic")  # Aligned with rag_api_server.py default
+    
     # Reset tool call counter for new query
-    from .tools import reset_tool_call_counter
+    from .tools import reset_tool_call_counter, set_retrieval_strategy
     reset_tool_call_counter()
+    
+    # Set the retrieval strategy for this session
+    set_retrieval_strategy(strategy)
+    
+    # Get prompts from Phoenix/JSON with fallback
+    if conversation_context:
+        # For context-aware prompts, build them with all variables
+        retrieval_description = get_prompt("document_retrieval_task_with_context", 
+                                         f"Previous conversation context:\n{conversation_context}\n\nCurrent question: '{query}'\n\nFind relevant information in the policy and standards documents for the current question. Consider the conversation history for context if relevant.")
+        synthesis_description = get_prompt("answer_synthesis_task_with_context",
+                                         f"Previous conversation:\n{conversation_context}\n\nCurrent question: '{query}'\n\nAnalyze the provided document context from the research task and formulate a comprehensive answer to the current question. If relevant, briefly reference our previous conversation.")
+        
+        # Try to format if template variables exist, otherwise use as-is
+        if '{query}' in retrieval_description and '{conversation_context}' in retrieval_description:
+            retrieval_description = retrieval_description.format(query=query, conversation_context=conversation_context)
+        if '{query}' in synthesis_description and '{conversation_context}' in synthesis_description:
+            synthesis_description = synthesis_description.format(query=query, conversation_context=conversation_context)
+    else:
+        # Use simple prompts without context
+        retrieval_description = get_prompt("document_retrieval_task", 
+                                         f"Find relevant information in the policy and standards documents for the query: '{query}'.")
+        synthesis_description = get_prompt("answer_synthesis_task",
+                                         f"Analyze the provided document context from the research task and formulate a comprehensive and accurate answer to the user's original question: '{query}'.")
+        
+        # Try to format if template variable exists, otherwise use as-is
+        if '{query}' in retrieval_description:
+            retrieval_description = retrieval_description.format(query=query)
+        if '{query}' in synthesis_description:
+            synthesis_description = synthesis_description.format(query=query)
     
     # Task 1: Document retrieval using the specialist retriever
     document_retrieval_task = Task(
-        description=f"Find relevant information in the policy and standards documents for the query: '{query}'.",
+        description=retrieval_description,
         expected_output="A block of text containing chunks of the most relevant document sections and their source file names.",
         agent=document_researcher
     )
 
     # Task 2: Answer synthesis using the context from the previous task
     answer_synthesis_task = Task(
-        description=f"Analyze the provided document context from the research task and formulate a comprehensive and accurate answer to the user's original question: '{query}'.",
+        description=synthesis_description,
         expected_output="A professional, well-structured response that directly answers the user's question with proper source citations.",
         agent=insight_synthesizer,
         context=[document_retrieval_task]
@@ -93,13 +126,17 @@ def create_rag_crew(query: str, conversation_context: str = None):
         print(f"ERROR: crew execution failed: {e}")
         return None
 
-def run_rag_crew_with_logging(query: str, conversation_context: str = ""):
+def run_rag_crew_with_logging(query: str, conversation_context: str = "", strategy: str = None):
     """
     Run RAG crew with Phoenix observability logging and conversation context
     """
+    # Use environment variable for default strategy if none provided
+    if strategy is None:
+        strategy = os.getenv("DEFAULT_RAG_STRATEGY", "semantic")  # Aligned with rag_api_server.py default
+        
     try:
-        # Create and run crew with conversation context
-        result = create_rag_crew(query, conversation_context)
+        # Create and run crew with conversation context and strategy
+        result = create_rag_crew(query, conversation_context, strategy)
         
         # Log interaction for Phoenix observability
         if PHOENIX_AVAILABLE:

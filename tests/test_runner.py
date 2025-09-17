@@ -49,7 +49,7 @@ except ImportError as e:
 
 
 
-def run_evaluation_tests(strategy: str = "semantic"):
+def run_evaluation_tests(strategy: str = "semantic", max_questions: int = 5):
     """Run RAGAs evaluation tests"""
     print(f"\nSTARTING: STARTING: Evaluation Tests - {strategy.upper()} (Phoenix: {'SUCCESS:' if PHOENIX_AVAILABLE else 'ERROR:'})")
     print("=" * 80)
@@ -70,7 +70,7 @@ def run_evaluation_tests(strategy: str = "semantic"):
             )
         
         # Run evaluation
-        result = evaluate_strategy(strategy)
+        result = evaluate_strategy(strategy, max_questions=max_questions)
         success = result is not None
         
         print(f"\nINFO: EVALUATION RESULTS for {strategy.upper()}:")
@@ -110,8 +110,10 @@ def run_evaluation_tests(strategy: str = "semantic"):
 def main():
     """Main RAGAs evaluation test runner with Phoenix observability"""
     parser = argparse.ArgumentParser(description='RAGAs Evaluation Test Runner with Phoenix Integration')
-    parser.add_argument('--strategy', choices=['semantic', 'hierarchical', 'both'], 
-                       default='semantic', help='RAG strategy to evaluate')
+    parser.add_argument('--strategy', choices=['semantic', 'hierarchical', 'contextual_rag', 'all'], 
+                       default='semantic', help='RAG strategy to evaluate (or all for all strategies)')
+    parser.add_argument('--max_questions', type=int, default=5, 
+                       help='Maximum number of questions to evaluate (default: 5)')
     
     args = parser.parse_args()
     
@@ -120,6 +122,7 @@ def main():
     print(f" PHOENIX RAGAS EVALUATION RUNNER")
     print(f"Phoenix Available: {'SUCCESS: YES' if PHOENIX_AVAILABLE else 'ERROR: NO'}")
     print(f"Strategy: {args.strategy.upper()}")
+    print(f"Max Questions: {args.max_questions}")
     print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 80)
     
@@ -127,11 +130,16 @@ def main():
     
     try:
         # Run evaluation tests
-        if args.strategy == 'both':
-            results['evaluation_semantic'] = run_evaluation_tests('semantic')
-            results['evaluation_hierarchical'] = run_evaluation_tests('hierarchical')
+        if args.strategy == 'all':
+            # Run all strategies
+            from src.evaluator.simple_rag_evaluator import evaluate_all_strategies
+            print("🎯 Running evaluation for ALL strategies...")
+            results['evaluation_all'] = evaluate_all_strategies(max_questions=args.max_questions)
+        elif args.strategy in ['semantic', 'hierarchical', 'contextual_rag']:
+            results[f'evaluation_{args.strategy}'] = run_evaluation_tests(args.strategy, args.max_questions)
         else:
-            results[f'evaluation_{args.strategy}'] = run_evaluation_tests(args.strategy)
+            print(f"❌ Unknown strategy: {args.strategy}")
+            return False
         
         # Summary
         session_time = time.time() - session_start

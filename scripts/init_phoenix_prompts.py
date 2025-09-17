@@ -14,7 +14,7 @@ def main():
         
         # Test prompt loading first
         print(" Testing prompt loading from JSON...")
-        test_prompt = get_prompt("research_task")
+        test_prompt = get_prompt("document_retrieval_task")
         if test_prompt:
             print(f"SUCCESS: Successfully loaded prompts from JSON (sample: {test_prompt[:50]}...)")
         else:

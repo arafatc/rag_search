@@ -27,9 +27,9 @@ def test_phoenix_integration():
     
     # Test 1: Basic prompt retrieval (should work via JSON fallback)
     print(" Test 1: Basic Prompt Retrieval")
-    prompt = get_prompt("research_task")
+    prompt = get_prompt("document_retrieval_task")
     if prompt:
-        print(f"SUCCESS: Successfully retrieved 'research_task' prompt ({len(prompt)} chars)")
+        print(f"SUCCESS: Successfully retrieved 'document_retrieval_task' prompt ({len(prompt)} chars)")
         print(f"Preview: {prompt[:100]}...")
     else:
         print("ERROR: Failed to retrieve prompt")
@@ -66,7 +66,7 @@ def test_phoenix_integration():
     
     # Test 4: Test prompt retrieval with version support
     print(f"\nCHECKING: Test 4: Version-Aware Prompt Retrieval")
-    prompts_to_test = ["research_task", "synthesis_task", "data_analysis_task"]
+    prompts_to_test = ["document_retrieval_task", "answer_synthesis_task", "data_analysis_task"]
     
     for prompt_name in prompts_to_test:
         prompt = get_prompt(prompt_name, version="latest")

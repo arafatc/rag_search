@@ -204,9 +204,18 @@ def chat_completions(request: ChatCompletionRequest):
         import json
         import re
         
-        # Use CrewAI for processing with conversation context
+        # Strategy detection from query or use environment variable default
+        strategy = os.getenv("DEFAULT_RAG_STRATEGY", "semantic")  # Environment-controlled default
+        if "hierarchical" in user_message.lower():
+            strategy = "hierarchical"
+        elif "contextual" in user_message.lower():
+            strategy = "contextual_rag"
+        
+        print(f"INFO: Using strategy '{strategy}' for query: {user_message[:50]}...")
+        
+        # Use CrewAI for processing with conversation context and strategy
         # create_rag_crew already executes the crew and returns CrewOutput
-        crew_output = create_rag_crew(user_message, conversation_context)
+        crew_output = create_rag_crew(user_message, conversation_context, strategy)
         
         # Debug: Print the full crew output structure
         print(f"DEBUG: crew_output type: {type(crew_output)}")
@@ -273,10 +282,10 @@ def chat_completions(request: ChatCompletionRequest):
                 formatted_response += f"\n{document_name} (score: {score:.4f})\n"
         
         # Get strategy and chunks info
-        display_strategy = "semantic"  # Default
+        display_strategy = os.getenv("DEFAULT_RAG_STRATEGY", "semantic")  # Environment-controlled default
         display_chunks = 0  # Default
         if display_sources_data:
-            display_strategy = display_sources_data.get("strategy", "semantic")
+            display_strategy = display_sources_data.get("strategy", os.getenv("DEFAULT_RAG_STRATEGY", "semantic"))
             display_chunks = display_sources_data.get("chunks_used", 0)
         
         # Add Retrieval Strategy section

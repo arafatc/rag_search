@@ -63,6 +63,10 @@ numpy>=1.26.0
 pandas==2.2.3
 pyarrow==21.0.0
 
+# ===================== EVALUATION & METRICS =====================
+ragas>=0.1.0
+datasets>=2.14.0
+
 # ===================== ASYNC & HTTP UTILITIES =====================
 aiohttp==3.12.15
 requests==2.32.5

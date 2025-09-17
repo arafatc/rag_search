@@ -64,6 +64,10 @@ class PhoenixPrompts:
                         self._record_usage(name, "phoenix", execution_time)
                         print(f"INFO: Retrieved prompt '{name}' from Phoenix")
                         return template
+                    else:
+                        print(f"Warning: Failed to extract template from Phoenix prompt for {name}")
+                else:
+                    print(f"Warning: No prompt found in Phoenix for {name}")
             except Exception as e:
                 print(f"Warning: Phoenix prompt retrieval failed for {name}: {e}")
         
@@ -137,17 +141,7 @@ class PhoenixPrompts:
     def _extract_template_from_phoenix(self, prompt_version) -> Optional[str]:
         """Extract template string from Phoenix PromptVersion object"""
         try:
-            # Method 1: Use the format() method to get OpenAI-style prompt
-            formatted_prompt = prompt_version.format()
-            if hasattr(formatted_prompt, 'messages') and formatted_prompt.messages:
-                # Extract content from the first message (typically system message)
-                first_message = formatted_prompt.messages[0]
-                if isinstance(first_message, dict) and 'content' in first_message:
-                    return first_message['content']
-                elif hasattr(first_message, 'content'):
-                    return first_message.content
-            
-            # Method 2: Access the internal _template structure
+            # Method 1: Direct access to _template (most reliable)
             if hasattr(prompt_version, '_template') and prompt_version._template:
                 template_data = prompt_version._template
                 if isinstance(template_data, dict) and 'messages' in template_data:
@@ -155,19 +149,27 @@ class PhoenixPrompts:
                     if messages and len(messages) > 0:
                         first_message = messages[0]
                         if isinstance(first_message, dict) and 'content' in first_message:
-                            return first_message['content']
+                            content = first_message['content']
+                            print(f"DEBUG: Extracted template from Phoenix: {content[:100]}...")
+                            return content
             
-            # Method 3: Fallback - try accessing prompt attribute directly
-            if hasattr(prompt_version, 'prompt') and prompt_version.prompt:
-                messages = prompt_version.prompt
-                if messages and len(messages) > 0:
-                    first_message = messages[0]
-                    if isinstance(first_message, dict) and 'content' in first_message:
-                        return first_message['content']
-                    elif hasattr(first_message, 'content'):
-                        return first_message.content
+            # Method 2: Access __dict__ if direct access fails
+            if hasattr(prompt_version, '__dict__'):
+                prompt_dict = prompt_version.__dict__
+                if '_template' in prompt_dict:
+                    template_data = prompt_dict['_template']
+                    if isinstance(template_data, dict) and 'messages' in template_data:
+                        messages = template_data['messages']
+                        if messages and len(messages) > 0:
+                            first_message = messages[0]
+                            if isinstance(first_message, dict) and 'content' in first_message:
+                                content = first_message['content']
+                                print(f"DEBUG: Extracted template from Phoenix dict: {content[:100]}...")
+                                return content
             
+            print("DEBUG: Could not find template content in Phoenix prompt")
             return None
+            
         except Exception as e:
             print(f"Warning: Failed to extract template from Phoenix prompt: {e}")
             return None

@@ -50,6 +50,7 @@ services:
       - RAG_API_PORT=8000
       - RAG_API_HOST=0.0.0.0
       - OLLAMA_BASE_URL=http://ollama:11434
+      - DEFAULT_RAG_STRATEGY=semantic # or contextual_rag or hierarchical
     ports:
       - "8001:8000"
     depends_on:
