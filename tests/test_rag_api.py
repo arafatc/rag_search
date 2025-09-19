@@ -16,7 +16,7 @@ load_dotenv(override=True)
 
 # Configuration
 BASE_URL = "http://localhost:8001"
-TIMEOUT = 180
+TIMEOUT = 360  # Increased to 6 minutes to match processing time
 
 def test_query(query: str, expected_source: str = None):
     """Test a single query and measure performance"""

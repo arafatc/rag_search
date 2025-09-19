@@ -348,9 +348,18 @@ if __name__ == "__main__":
     port = int(os.getenv("RAG_API_PORT", "8001"))
     host = os.getenv("RAG_API_HOST", "0.0.0.0")
     
-    print(f"Starting RAG API Server with Gemma 3:1b (Production Optimized)...")
+    print(f"Starting RAG API Server with Gemma 3:1b (Speed Optimized)...")
     print(f"Server will run on: http://{host}:{port}")
     print(f"OpenWebUI endpoint: http://{host}:{port}/v1")
-    print(f"Model: Gemma 3:1b (1B parameters, Context: 4,096 tokens, Top-K: 3)")
+    print(f"Model: Gemma 3:1b (1B parameters, Context: 8K tokens, Speed optimized)")
     
-    uvicorn.run(app, host=host, port=port)
+    # Configure uvicorn with appropriate timeouts
+    uvicorn.run(
+        app, 
+        host=host, 
+        port=port,
+        timeout_keep_alive=300,  # 5 minutes keep-alive
+        timeout_graceful_shutdown=30,  # 30 seconds graceful shutdown
+        loop="asyncio",  # Use asyncio for better performance
+        log_level="warning"  # Reduce log verbosity for speed
+    )

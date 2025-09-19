@@ -104,13 +104,16 @@ def create_rag_crew(query: str, conversation_context: str = None, strategy: str 
         context=[document_retrieval_task]
     )
 
-    # Create and execute crew with both agents
+    # Create and execute crew with both agents - optimized for speed
     crew = Crew(
         agents=[document_researcher, insight_synthesizer],
         tasks=[document_retrieval_task, answer_synthesis_task],
         process=Process.sequential,
-        verbose=True,
-        max_execution_time=300  # Maximum 5 minutes total execution time
+        verbose=False,  # Disable verbose output for speed
+        max_execution_time=240,  # Reduced to 4 minutes total execution time
+        step_callback=None,  # Disable step callbacks for speed
+        task_callback=None,  # Disable task callbacks for speed
+        memory=False,  # Disable memory for speed
     )
 
     # Execute the crew and return results

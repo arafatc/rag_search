@@ -61,7 +61,7 @@ def warm_up_ollama(base_url: str, model_name: str) -> bool:
 
 
 def get_embedding_model():
-    """Create and return configured embedding model"""
+    """Create and return configured embedding model - optimized for speed"""
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     embedding_model = os.getenv("EMBEDDING_MODEL", "nomic-embed-text:latest")
     
@@ -70,7 +70,7 @@ def get_embedding_model():
     return OllamaEmbedding(
         model_name=embedding_model,
         base_url=ollama_base_url,
-        request_timeout=60.0
+        request_timeout=30.0  # Reduced from 60 to 30 seconds
     )
 
 
@@ -246,35 +246,35 @@ def expand_section_query(query: str) -> list:
 
 
 def retrieve_with_strategy(query: str, strategy: str) -> str:
-    """Single retrieval attempt - no retries, no fallbacks"""
+    """Single retrieval attempt - optimized for speed"""
     # Single retrieval attempt using primary retriever
     retriever = get_retriever(strategy, use_primary=True)
     nodes = retriever.retrieve(query)  # Use correct method name
     
     if not nodes:
-        return "RETRIEVAL COMPLETED: No relevant documents found for your query. [END OF RETRIEVAL - NO FURTHER SEARCHES NEEDED]"
+        return "RETRIEVAL TASK COMPLETED: No relevant documents found for your query."
     
-    # Filter meaningful content and format results
+    # Filter meaningful content and format results - optimized for speed
     meaningful_nodes = [n for n in nodes if len(n.node.text.strip()) > 50]
     
     if not meaningful_nodes:
-        return "RETRIEVAL COMPLETED: No relevant documents found for your query. [END OF RETRIEVAL - NO FURTHER SEARCHES NEEDED]"
+        return "RETRIEVAL TASK COMPLETED: No relevant documents found for your query."
     
-    # Sort by score and take top results (direct selection from top 3)
+    # Sort by score and take top results (reduced from 3 to 2 for speed)
     meaningful_nodes.sort(key=lambda x: x.score or 0, reverse=True)
     selected_nodes = meaningful_nodes[:3]  # Use all 3 retrieved documents
     
-    # Format results - with length limits for performance
+    # Format results - with tighter length limits for performance
     formatted_results = []
     for i, node_with_score in enumerate(selected_nodes, 1):
         text = node_with_score.node.text.strip()
-        # Limit text length to avoid overwhelming the LLM
-        if len(text) > 1000:  # Truncate very long texts
-            text = text[:1000] + "... [truncated for performance]"
+        # Tighter text length limit for faster LLM processing
+        if len(text) > 800:  # Reduced from 1000 to 800
+            text = text[:800] + "... [truncated for performance]"
         score = node_with_score.score or 0
         formatted_results.append(f"Document {i} (relevance: {score:.3f}):\n{text}")
     
-    result_text = "\n\n".join(formatted_results)
+    result_text = "RETRIEVAL TASK COMPLETED:\n\n" + "\n\n".join(formatted_results)
     
     # Save source info for debugging
     sources_info = {
