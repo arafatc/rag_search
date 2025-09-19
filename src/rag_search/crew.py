@@ -54,7 +54,7 @@ def create_rag_crew(query: str, conversation_context: str = None, strategy: str 
     
     # Use environment variable for default strategy if none provided
     if strategy is None:
-        strategy = os.getenv("DEFAULT_RAG_STRATEGY", "semantic")  # Aligned with rag_api_server.py default
+        strategy = os.getenv("DEFAULT_RAG_STRATEGY", "structure_aware")  # Use structure_aware chunking as primary
     
     # Reset tool call counter for new query
     from .tools import reset_tool_call_counter, set_retrieval_strategy
@@ -109,7 +109,8 @@ def create_rag_crew(query: str, conversation_context: str = None, strategy: str 
         agents=[document_researcher, insight_synthesizer],
         tasks=[document_retrieval_task, answer_synthesis_task],
         process=Process.sequential,
-        verbose=True
+        verbose=True,
+        max_execution_time=300  # Maximum 5 minutes total execution time
     )
 
     # Execute the crew and return results
@@ -132,7 +133,7 @@ def run_rag_crew_with_logging(query: str, conversation_context: str = "", strate
     """
     # Use environment variable for default strategy if none provided
     if strategy is None:
-        strategy = os.getenv("DEFAULT_RAG_STRATEGY", "semantic")  # Aligned with rag_api_server.py default
+        strategy = os.getenv("DEFAULT_RAG_STRATEGY", "structure_aware")  # Use structure_aware chunking as primary
         
     try:
         # Create and run crew with conversation context and strategy

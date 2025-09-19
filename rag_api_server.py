@@ -205,7 +205,7 @@ def chat_completions(request: ChatCompletionRequest):
         import re
         
         # Strategy detection from query or use environment variable default
-        strategy = os.getenv("DEFAULT_RAG_STRATEGY", "semantic")  # Environment-controlled default
+        strategy = os.getenv("DEFAULT_RAG_STRATEGY", "structure_aware")  # Use structure_aware chunking as primary
         if "hierarchical" in user_message.lower():
             strategy = "hierarchical"
         elif "contextual" in user_message.lower():
@@ -282,10 +282,10 @@ def chat_completions(request: ChatCompletionRequest):
                 formatted_response += f"\n{document_name} (score: {score:.4f})\n"
         
         # Get strategy and chunks info
-        display_strategy = os.getenv("DEFAULT_RAG_STRATEGY", "semantic")  # Environment-controlled default
+        display_strategy = os.getenv("DEFAULT_RAG_STRATEGY", "structure_aware")  # Use structure_aware chunking as primary
         display_chunks = 0  # Default
         if display_sources_data:
-            display_strategy = display_sources_data.get("strategy", os.getenv("DEFAULT_RAG_STRATEGY", "semantic"))
+            display_strategy = display_sources_data.get("strategy", os.getenv("DEFAULT_RAG_STRATEGY", "structure_aware"))
             display_chunks = display_sources_data.get("chunks_used", 0)
         
         # Add Retrieval Strategy section

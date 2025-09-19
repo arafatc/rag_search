@@ -78,6 +78,25 @@ def test_query(query: str, expected_source: str = None):
 
 def main():
     """Run the optimized system tests"""
+    # Check for command line arguments
+    if len(sys.argv) > 1:
+        # Single query mode
+        query = " ".join(sys.argv[1:])
+        print("🚀 Testing Single Query")
+        print(f"Target URL: {BASE_URL}")
+        print(f"Query: {query}")
+        
+        success, duration, answer = test_query(query)
+        
+        if success:
+            print(f"\n✅ SUCCESS in {duration:.2f}s")
+            print(f"Answer: {answer}")
+        else:
+            print(f"\n❌ FAILED after {duration:.2f}s")
+        
+        return
+    
+    # Full test suite mode
     print("🚀 Testing Optimized RAG System")
     print(f"Target URL: {BASE_URL}")
     print(f"Timeout: {TIMEOUT} seconds")
