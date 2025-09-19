@@ -6,6 +6,7 @@ Loads questions from evaluation_dataset.jsonl and evaluates different RAG strate
 import os
 import sys
 import json
+import requests
 from typing import Dict, Any, List, Optional
 
 # Add project root to path
@@ -15,7 +16,7 @@ sys.path.insert(0, os.path.normpath(project_root))
 
 class SimpleRAGEvaluator:
     def __init__(self):
-        self.strategies = ['semantic', 'hierarchical', 'contextual_rag']
+        self.strategies = ['semantic', 'hierarchical', 'contextual_rag', 'structure_aware']
         self.test_questions = self._load_evaluation_dataset()
     
     def _load_evaluation_dataset(self) -> List[Dict[str, Any]]:
@@ -47,46 +48,63 @@ class SimpleRAGEvaluator:
             return []
     
     def get_strategy_response(self, strategy: str, question: str) -> Dict[str, Any]:
-        """Get response from specific strategy using direct retrieval"""
+        """Get response from specific strategy using API calls (not direct crew calls)"""
         try:
-            print(f"    Querying {strategy} strategy directly...")
+            print(f"    Querying {strategy} strategy via API...")
             
-            # Use strategy-specific retrieval to get real contexts
-            from src.rag_search.tools import retrieve_with_strategy, reset_tool_call_counter
-            from src.rag_search.crew import create_rag_crew
+            # Set the strategy environment variable for the API to use
+            os.environ["DEFAULT_RAG_STRATEGY"] = strategy
             
-            # Reset tool counter and use the strategy-specific retrieval function
-            reset_tool_call_counter()
+            # Make API call like test_rag_api.py does
+            import requests
             
-            # Get retrieval results using strategy-specific logic
-            retrieval_result = retrieve_with_strategy(question, strategy)
+            api_url = "http://localhost:8001/v1/chat/completions"
+            response = requests.post(
+                api_url,
+                json={
+                    "model": "rag-search",
+                    "messages": [{"role": "user", "content": question}],
+                    "max_tokens": 1000,
+                    "temperature": 0.0
+                },
+                timeout=300  # 5 minute timeout
+            )
             
-            # Parse the formatted result to extract contexts
+            if response.status_code != 200:
+                raise Exception(f"API returned status {response.status_code}: {response.text}")
+                
+            data = response.json()
+            answer = data["choices"][0]["message"]["content"]
+            
+            # Extract contexts from the formatted response
             contexts = []
-            if "--- Chunk" in retrieval_result:
-                chunks = retrieval_result.split("--- Chunk")
-                for chunk in chunks[1:]:  # Skip first empty part
-                    if "Content:" in chunk:
-                        content_start = chunk.find("Content:") + 8
-                        content_end = chunk.find("---", content_start)
-                        if content_end == -1:
-                            content = chunk[content_start:].strip()
-                        else:
-                            content = chunk[content_start:content_end].strip()
-                        if content:
-                            contexts.append(content)
+            if "Document 1 (relevance:" in answer:
+                # Parse the API response to extract document chunks
+                lines = answer.split('\n')
+                current_doc = []
+                in_doc = False
+                
+                for line in lines:
+                    if line.startswith("Document ") and "(relevance:" in line:
+                        if current_doc:
+                            contexts.append('\n'.join(current_doc))
+                        current_doc = []
+                        in_doc = True
+                    elif in_doc and line.strip():
+                        if not line.startswith("Sources") and not line.startswith("Retrieval Strategy"):
+                            current_doc.append(line)
+                    elif line.startswith("Sources") or line.startswith("Retrieval Strategy"):
+                        if current_doc:
+                            contexts.append('\n'.join(current_doc))
+                        break
+                
+                # Add the last document if exists
+                if current_doc:
+                    contexts.append('\n'.join(current_doc))
             
-            # Fallback: if no contexts parsed, use the whole result as one context
-            if not contexts and retrieval_result:
-                contexts = [retrieval_result[:1000]]  # Limit to 1000 chars
-            
-            # Get answer using crew
-            crew_output = create_rag_crew(question, "")
-            answer = str(crew_output.raw) if hasattr(crew_output, 'raw') else str(crew_output)
-            
-            # Clean up answer formatting
-            if answer.startswith('**'):
-                answer = answer[2:].strip()
+            # Fallback: use first 1000 chars as context if parsing failed
+            if not contexts:
+                contexts = [answer[:1000]]
             
             return {
                 "question": question,

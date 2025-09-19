@@ -54,6 +54,20 @@ def run_evaluation_tests(strategy: str = "semantic", max_questions: int = 5):
     print(f"\nSTARTING: STARTING: Evaluation Tests - {strategy.upper()} (Phoenix: {'SUCCESS:' if PHOENIX_AVAILABLE else 'ERROR:'})")
     print("=" * 80)
     
+    # Check if API server is running
+    try:
+        import requests
+        response = requests.get("http://localhost:8001/health", timeout=10)
+        if response.status_code != 200:
+            print("❌ ERROR: RAG API server is not responding. Please start it with:")
+            print("   python rag_api_server.py")
+            return False
+        print("✅ API server is running and healthy")
+    except Exception as e:
+        print(f"❌ ERROR: Cannot connect to RAG API server: {e}")
+        print("Please start the server with: python rag_api_server.py")
+        return False
+    
     try:
         from src.evaluator.simple_rag_evaluator import evaluate_strategy
         
@@ -110,8 +124,8 @@ def run_evaluation_tests(strategy: str = "semantic", max_questions: int = 5):
 def main():
     """Main RAGAs evaluation test runner with Phoenix observability"""
     parser = argparse.ArgumentParser(description='RAGAs Evaluation Test Runner with Phoenix Integration')
-    parser.add_argument('--strategy', choices=['semantic', 'hierarchical', 'contextual_rag', 'all'], 
-                       default='semantic', help='RAG strategy to evaluate (or all for all strategies)')
+    parser.add_argument('--strategy', choices=['semantic', 'hierarchical', 'contextual_rag', 'structure_aware', 'all'], 
+                       default='structure_aware', help='RAG strategy to evaluate (or all for all strategies)')
     parser.add_argument('--max_questions', type=int, default=5, 
                        help='Maximum number of questions to evaluate (default: 5)')
     
@@ -135,7 +149,7 @@ def main():
             from src.evaluator.simple_rag_evaluator import evaluate_all_strategies
             print("🎯 Running evaluation for ALL strategies...")
             results['evaluation_all'] = evaluate_all_strategies(max_questions=args.max_questions)
-        elif args.strategy in ['semantic', 'hierarchical', 'contextual_rag']:
+        elif args.strategy in ['semantic', 'hierarchical', 'contextual_rag', 'structure_aware']:
             results[f'evaluation_{args.strategy}'] = run_evaluation_tests(args.strategy, args.max_questions)
         else:
             print(f"❌ Unknown strategy: {args.strategy}")
