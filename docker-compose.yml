@@ -56,7 +56,7 @@ services:
       - PRIMARY_STRATEGY=structure_aware    # Primary retrieval strategy: structure_aware or semantic
       - FALLBACK_STRATEGY=semantic         # Fallback retrieval strategy
       - SIMILARITY_TOP_K=3        # Number of documents to retrieve and select
-      - HYBRID_ALPHA=0.6          # Weight between semantic (1.0) and lexical (0.0)
+      - HYBRID_ALPHA=0.6         # Weight between semantic (1.0) and lexical (0.0)
     ports:
       - "8001:8000"
     depends_on:

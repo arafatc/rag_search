@@ -94,21 +94,40 @@ def get_table_name(strategy: str) -> str:
 
 
 class CustomHybridRetriever:
-    """Hybrid retriever: semantic (pgvector) + lexical (BM25 with normalization & keyword boosting)."""
+    """
+    Hybrid retriever: semantic (pgvector) + lexical (BM25) with normalization,
+    keyword boosting, candidate expansion, and exact-match fallback.
+    """
 
-    def __init__(self, database_url: str, table_name: str, embed_model, alpha: float = 0.5, keyword_boost: float = 0.1):
+    def __init__(
+        self,
+        database_url: str,
+        table_name: str,
+        embed_model,
+        alpha: float = 0.5,
+        keyword_boost: float = 0.1,
+        candidate_multiplier: int = 3,
+        max_candidates: int = 50,
+        debug: bool = False,
+    ):
         self.database_url = database_url
         self.table_name = table_name
         self.embed_model = embed_model
         self.alpha = alpha
-        self.keyword_boost = keyword_boost  # Boost if query keywords appear
+        self.keyword_boost = keyword_boost
+        self.candidate_multiplier = candidate_multiplier
+        self.max_candidates = max_candidates
+        self.debug = debug
 
-    def _semantic_retrieve(self, query: str, similarity_top_k: int):
-        """Semantic retrieval using pgvector with cosine distance."""
+    # ------------------------
+    # Semantic retrieval
+    # ------------------------
+    def _semantic_retrieve(self, query: str, k: int):
         scores = {}
         try:
             query_embedding = self.embed_model.get_query_embedding(query)
             query_vector_str = "[" + ",".join(map(str, query_embedding)) + "]"
+
             with psycopg2.connect(self.database_url) as conn:
                 with conn.cursor() as cursor:
                     sql = f"""
@@ -118,26 +137,26 @@ class CustomHybridRetriever:
                         ORDER BY embedding <-> %s::vector
                         LIMIT %s;
                     """
-                    cursor.execute(sql, (query_vector_str, query_vector_str, similarity_top_k))
+                    cursor.execute(sql, (query_vector_str, query_vector_str, k))
                     rows = cursor.fetchall()
 
             for id_, text, metadata_, node_id, distance in rows:
-                node_id = node_id or str(id_)
-                sim_score = 1.0 / (1.0 + distance)  # convert distance → similarity
-                scores[node_id] = (
-                    TextNode(text=text, id_=node_id, metadata=metadata_ or {}),
-                    sim_score
-                )
+                nid = node_id or str(id_)
+                sim = 1.0 / (1.0 + (distance if distance is not None else float("inf")))
+                scores[nid] = (TextNode(text=text or "", id_=nid, metadata=metadata_ or {}), sim)
         except Exception as e:
-            logger.error(f"Semantic retrieval failed: {e}")
+            logger.error(f"Semantic retrieval failed: {e}", exc_info=True)
         return scores
 
-    def _lexical_retrieve(self, query: str, similarity_top_k: int):
-        """Lexical retrieval using BM25 (ts_rank) with normalization and keyword boost."""
+    # ------------------------
+    # Lexical retrieval with BM25 + fallback exact match
+    # ------------------------
+    def _lexical_retrieve(self, query: str, k: int):
         scores = {}
         try:
             with psycopg2.connect(self.database_url) as conn:
                 with conn.cursor() as cursor:
+                    # BM25 with node_id weighting
                     sql = f"""
                         SELECT id, text, metadata_, node_id,
                                ts_rank(
@@ -153,46 +172,89 @@ class CustomHybridRetriever:
                         ORDER BY rank DESC
                         LIMIT %s;
                     """
-                    cursor.execute(sql, (query, query, similarity_top_k))
+                    cursor.execute(sql, (query, query, k))
                     rows = cursor.fetchall()
+
+            # Fallback to exact substring match if BM25 fails
+            if not rows:
+                with psycopg2.connect(self.database_url) as conn:
+                    with conn.cursor() as cursor:
+                        fallback_sql = f"""
+                            SELECT id, text, metadata_, node_id, 1.0 as rank
+                            FROM {self.table_name}
+                            WHERE LOWER(text) LIKE LOWER(%s)
+                            LIMIT %s;
+                        """
+                        cursor.execute(fallback_sql, (f"%{query}%", k))
+                        rows = cursor.fetchall()
 
             if not rows:
                 return scores
 
             max_rank = max([row[4] for row in rows], default=1.0)
+
             for id_, text, metadata_, node_id, rank in rows:
-                node_id = node_id or str(id_)
+                nid = node_id or str(id_)
                 norm_rank = rank / max_rank
-                boost = self.keyword_boost if query.lower() in (text or "").lower() else 0
-                scores[node_id] = (
-                    TextNode(text=text or "", id_=node_id, metadata=metadata_ or {}),
-                    norm_rank + boost
-                )
+                # keyword boost if query terms appear
+                keyword_boost = self.keyword_boost if query.lower() in (text or "").lower() else 0.0
+                final_score = norm_rank + keyword_boost
+                scores[nid] = (TextNode(text=text or "", id_=nid, metadata=metadata_ or {}), final_score)
 
         except Exception as e:
-            logger.error(f"Lexical retrieval failed: {e}")
+            logger.error(f"Lexical retrieval failed: {e}", exc_info=True)
+
         return scores
 
+    # ------------------------
+    # Normalize scores to 0-1
+    # ------------------------
+    def _min_max_normalize(self, raw):
+        if not raw:
+            return {}
+        values = [v[1] for v in raw.values()]
+        min_v, max_v = min(values), max(values)
+        rng = max_v - min_v if max_v > min_v else 0.0
+        out = {}
+        for nid, (node, val) in raw.items():
+            norm = (val - min_v) / rng if rng > 0 else (1.0 if val > 0 else 0.0)
+            out[nid] = (node, norm)
+        return out
+
+    # ------------------------
+    # Hybrid retrieve: merge semantic + lexical
+    # ------------------------
     def retrieve(self, query: str, similarity_top_k: int = SIMILARITY_TOP_K):
-        """Hybrid retrieval with weighted score merge (alpha for semantic, 1-alpha for lexical)."""
-        semantic_scores = self._semantic_retrieve(query, similarity_top_k)
-        lexical_scores = self._lexical_retrieve(query, similarity_top_k)
-        all_nodes = {}
+        candidate_k = min(max(similarity_top_k * self.candidate_multiplier, 10), self.max_candidates)
 
-        # Merge scores
-        for node_id, (node, sem_score) in semantic_scores.items():
-            lex_score = lexical_scores.get(node_id, (None, 0.0))[1]
-            final_score = self.alpha * sem_score + (1 - self.alpha) * lex_score
-            all_nodes[node_id] = NodeWithScore(node=node, score=final_score)
+        semantic_raw = self._semantic_retrieve(query, candidate_k)
+        lexical_raw = self._lexical_retrieve(query, candidate_k)
 
-        for node_id, (node, lex_score) in lexical_scores.items():
-            if node_id not in all_nodes:
-                sem_score = semantic_scores.get(node_id, (None, 0.0))[1]
-                final_score = self.alpha * sem_score + (1 - self.alpha) * lex_score
-                all_nodes[node_id] = NodeWithScore(node=node, score=final_score)
+        if not semantic_raw and not lexical_raw:
+            return []
 
-        # Sort by score
-        return sorted(all_nodes.values(), key=lambda x: x.score, reverse=True)[:similarity_top_k]
+        sem_norm = self._min_max_normalize(semantic_raw)
+        lex_norm = self._min_max_normalize(lexical_raw)
+
+        all_ids = set(sem_norm.keys()) | set(lex_norm.keys())
+        merged = {}
+
+        for nid in all_ids:
+            node_obj = sem_norm.get(nid, lex_norm.get(nid))[0]
+            sem_score = sem_norm.get(nid, (None, 0.0))[1]
+            lex_score = lex_norm.get(nid, (None, 0.0))[1]
+
+            final_score = self.alpha * sem_score + (1.0 - self.alpha) * lex_score
+            merged[nid] = NodeWithScore(node=node_obj, score=min(1.0, final_score))
+
+        results = sorted(merged.values(), key=lambda x: x.score or 0.0, reverse=True)[:similarity_top_k]
+
+        if self.debug:
+            logger.info("Hybrid retrieval debug results:")
+            for r in results:
+                logger.info(f"Node={r.node.id_} score={r.score:.4f} text_preview={r.node.text[:80]!r}")
+
+        return results
 
 
 class LlamaIndexRetriever:

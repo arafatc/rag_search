@@ -10,7 +10,7 @@ ollama_llm = LLM(
     model=f"ollama/{ollama_model}",  # Using configurable model via environment variable
     base_url=ollama_base_url,
     temperature=0.0,  # Zero temperature for fastest, most deterministic responses
-    timeout=120,  # Reduced timeout to force faster responses
+    timeout=180,  # Reduced timeout to force faster responses
     verbose=False,  # Disable verbose logging to reduce overhead
     # Optimized token configuration for speed
     max_tokens=4096,  # Reduced for faster generation
@@ -45,10 +45,8 @@ insight_synthesizer = Agent(
         "Rules: Use only retrieved document text. No external knowledge. Be concise but comprehensive."
     ),
     llm=ollama_llm,
-    verbose=True,  # Enable verbose for detailed logging
+    verbose=True,
     allow_delegation=False,
-    max_iter=1,  # Synthesis agent doesn't need tools, can stay at 1
-    step_callback=None,  # Disable callbacks for speed
-    # This agent does not need tools; it only processes text.
+    max_iter=1,
     tools=[]
 )
