@@ -53,27 +53,27 @@ def test_query(query: str, expected_source: str = None):
             
             if expected_source:
                 if expected_source.lower() in answer.lower():
-                    print(f"✅ CORRECT SOURCE: Found '{expected_source}' in response")
+                    print(f" CORRECT SOURCE: Found '{expected_source}' in response")
                 else:
-                    print(f"❌ WRONG SOURCE: Expected '{expected_source}' not found in response")
+                    print(f" WRONG SOURCE: Expected '{expected_source}' not found in response")
             
             # Look for source information in the response
             if "source" in answer.lower() or "document" in answer.lower():
-                print("📄 Sources mentioned in response")
+                print(" Sources mentioned in response")
             else:
-                print("⚠️  No source information found in response")
+                print("  No source information found in response")
                 
             return True, duration, answer
             
         else:
-            print(f"❌ FAILED: HTTP {response.status_code}")
+            print(f" FAILED: HTTP {response.status_code}")
             print(f"Error: {response.text}")
             return False, duration, None
             
     except Exception as e:
         end_time = time.time()
         duration = end_time - start_time
-        print(f"❌ EXCEPTION: {str(e)}")
+        print(f" EXCEPTION: {str(e)}")
         return False, duration, None
 
 def main():
@@ -82,22 +82,22 @@ def main():
     if len(sys.argv) > 1:
         # Single query mode
         query = " ".join(sys.argv[1:])
-        print("🚀 Testing Single Query")
+        print(" Testing Single Query")
         print(f"Target URL: {BASE_URL}")
         print(f"Query: {query}")
         
         success, duration, answer = test_query(query)
         
         if success:
-            print(f"\n✅ SUCCESS in {duration:.2f}s")
+            print(f"\n SUCCESS in {duration:.2f}s")
             print(f"Answer: {answer}")
         else:
-            print(f"\n❌ FAILED after {duration:.2f}s")
+            print(f"\n FAILED after {duration:.2f}s")
         
         return
     
     # Full test suite mode
-    print("🚀 Testing Optimized RAG System")
+    print(" Testing Optimized RAG System")
     print(f"Target URL: {BASE_URL}")
     print(f"Timeout: {TIMEOUT} seconds")
     
@@ -164,7 +164,7 @@ def main():
     
     # Summary
     print(f"\n{'='*80}")
-    print("📊 TEST SUMMARY")
+    print(" TEST SUMMARY")
     print(f"{'='*80}")
     
     successful_tests = sum(1 for r in results if r["success"])
@@ -179,19 +179,19 @@ def main():
     
     # Individual results
     for result in results:
-        status = "✅ PASS" if result["success"] else "❌ FAIL"
+        status = " PASS" if result["success"] else "❌ FAIL"
         print(f"Test {result['test_number']}: {status} - {result['duration']:.2f}s - {result['query'][:50]}...")
     
-    print(f"\n🎯 System Performance:")
+    print(f"\n System Performance:")
     print(f"   - Success Rate: {success_rate:.1f}%")
     print(f"   - Average Response Time: {total_duration/total_tests:.2f}s")
     
     if success_rate >= 100:
-        print("🏆 ALL TESTS PASSED! System is working optimally.")
+        print(" ALL TESTS PASSED! System is working optimally.")
     elif success_rate >= 80:
-        print("✅ Most tests passed. System is working well.")
+        print(" Most tests passed. System is working well.")
     else:
-        print("⚠️  Some tests failed. System needs attention.")
+        print(" Some tests failed. System needs attention.")
 
 if __name__ == "__main__":
     main()

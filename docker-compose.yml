@@ -51,6 +51,10 @@ services:
       - RAG_API_HOST=0.0.0.0
       - OLLAMA_BASE_URL=http://ollama:11434
       - DEFAULT_RAG_STRATEGY=structure_aware # Use structure_aware as primary, semantic as fallback
+      - PRIMARY_STRATEGY=structure_aware    # Primary retrieval strategy: structure_aware or semantic
+      - FALLBACK_STRATEGY=semantic         # Fallback retrieval strategy
+      - SIMILARITY_TOP_K=3        # Number of documents to retrieve and select
+      - HYBRID_ALPHA=0.7          # Weight between semantic (1.0) and lexical (0.0)
     ports:
       - "8001:8000"
     depends_on:

@@ -59,12 +59,12 @@ def run_evaluation_tests(strategy: str = "semantic", max_questions: int = 5):
         import requests
         response = requests.get("http://localhost:8001/health", timeout=10)
         if response.status_code != 200:
-            print("❌ ERROR: RAG API server is not responding. Please start it with:")
-            print("   python rag_api_server.py")
+            print(" ERROR: RAG API server is not responding. Please start it with:")
+            print(" python rag_api_server.py")
             return False
-        print("✅ API server is running and healthy")
+        print(" API server is running and healthy")
     except Exception as e:
-        print(f"❌ ERROR: Cannot connect to RAG API server: {e}")
+        print(f" ERROR: Cannot connect to RAG API server: {e}")
         print("Please start the server with: python rag_api_server.py")
         return False
     
@@ -147,12 +147,12 @@ def main():
         if args.strategy == 'all':
             # Run all strategies
             from src.evaluator.simple_rag_evaluator import evaluate_all_strategies
-            print("🎯 Running evaluation for ALL strategies...")
+            print(" Running evaluation for ALL strategies...")
             results['evaluation_all'] = evaluate_all_strategies(max_questions=args.max_questions)
         elif args.strategy in ['semantic', 'hierarchical', 'contextual_rag', 'structure_aware']:
             results[f'evaluation_{args.strategy}'] = run_evaluation_tests(args.strategy, args.max_questions)
         else:
-            print(f"❌ Unknown strategy: {args.strategy}")
+            print(f" Unknown strategy: {args.strategy}")
             return False
         
         # Summary

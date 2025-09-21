@@ -28,7 +28,7 @@ document_researcher = Agent(
     ),
     tools=[document_retrieval_tool],
     llm=ollama_llm,
-    verbose=False,  # Disable verbose for speed
+    verbose=True,  # Enable verbose for detailed logging
     allow_delegation=False,
     max_iter=1,  # STRICT: Only 1 iteration allowed
     step_callback=None,  # Disable callbacks for speed
@@ -44,7 +44,7 @@ insight_synthesizer = Agent(
         "Rules: Use only retrieved document text. No external knowledge. Be concise but comprehensive."
     ),
     llm=ollama_llm,
-    verbose=False,  # Disable verbose for speed
+    verbose=True,  # Enable verbose for detailed logging
     allow_delegation=False,
     max_iter=1,  # Synthesis agent doesn't need tools, can stay at 1
     step_callback=None,  # Disable callbacks for speed

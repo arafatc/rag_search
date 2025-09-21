@@ -3,6 +3,7 @@ import json
 import glob
 import requests
 import psycopg2
+import logging
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 from typing import Dict, Union, Any, List
@@ -14,14 +15,19 @@ from llama_index.vector_stores.postgres import PGVectorStore
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 from crewai.tools import tool
 
+# Configure logging for tools
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 # Load environment variables
 load_dotenv()
 
-# Configuration
-PRIMARY_STRATEGY = "structure_aware"
-FALLBACK_STRATEGY = "semantic"
+# Configuration - now configurable via environment variables
+PRIMARY_STRATEGY = os.getenv("PRIMARY_STRATEGY", "structure_aware")    # Configurable via docker-compose
+FALLBACK_STRATEGY = os.getenv("FALLBACK_STRATEGY", "semantic")         # Configurable via docker-compose
 MAX_CONTEXT_CHARS = 4000
-SIMILARITY_TOP_K = 3  # Optimal performance: retrieve and select 3
+SIMILARITY_TOP_K = int(os.getenv("SIMILARITY_TOP_K", "3"))  # Configurable via docker-compose
+HYBRID_ALPHA = float(os.getenv("HYBRID_ALPHA", "0.6"))      # Configurable via docker-compose
 
 # Global state
 _tool_call_counter = 0
@@ -38,7 +44,7 @@ def set_retrieval_strategy(strategy: str):
     """Set the current retrieval strategy for the session"""
     global _current_strategy
     _current_strategy = strategy
-    print(f"INFO: Set retrieval strategy to '{strategy}'")
+    logger.info(f"Set retrieval strategy to '{strategy}'")
 
 
 def get_current_strategy() -> str:
@@ -56,7 +62,7 @@ def warm_up_ollama(base_url: str, model_name: str) -> bool:
         )
         return response.status_code == 200
     except Exception as e:
-        print(f"Warning: Could not warm up Ollama model: {e}")
+        logger.warning(f"Could not warm up Ollama model: {e}")
         return False
 
 
@@ -87,55 +93,106 @@ def get_table_name(strategy: str) -> str:
     return table_mapping[strategy]
 
 
-class CustomPGVectorRetriever:
-    """Custom PostgreSQL vector retriever using direct SQL queries"""
-    
-    def __init__(self, database_url: str, table_name: str, embed_model):
+class CustomHybridRetriever:
+    """Hybrid retriever: semantic (pgvector) + lexical (BM25 with normalization & keyword boosting)."""
+
+    def __init__(self, database_url: str, table_name: str, embed_model, alpha: float = 0.5, keyword_boost: float = 0.1):
         self.database_url = database_url
         self.table_name = table_name
         self.embed_model = embed_model
-    
-    def retrieve(self, query: str, similarity_top_k: int = SIMILARITY_TOP_K) -> List[NodeWithScore]:
-        """Retrieve documents using custom SQL query"""
+        self.alpha = alpha
+        self.keyword_boost = keyword_boost  # Boost if query keywords appear
+
+    def _semantic_retrieve(self, query: str, similarity_top_k: int):
+        """Semantic retrieval using pgvector with cosine distance."""
+        scores = {}
         try:
-            # Generate query embedding
             query_embedding = self.embed_model.get_query_embedding(query)
-            query_vector_str = '[' + ','.join(map(str, query_embedding)) + ']'
-            
-            # Execute query
+            query_vector_str = "[" + ",".join(map(str, query_embedding)) + "]"
             with psycopg2.connect(self.database_url) as conn:
                 with conn.cursor() as cursor:
-                    query_sql = f"""
-                        SELECT id, text, metadata_, node_id, embedding <-> %s::vector as distance
+                    sql = f"""
+                        SELECT id, text, metadata_, node_id,
+                               embedding <-> %s::vector AS distance
                         FROM {self.table_name}
                         ORDER BY embedding <-> %s::vector
                         LIMIT %s;
                     """
-                    
-                    cursor.execute(query_sql, (query_vector_str, query_vector_str, similarity_top_k))
-                    results = cursor.fetchall()
-            
-            # Convert to NodeWithScore objects
-            nodes = []
-            for row in results:
-                id_, text, metadata_, node_id, distance = row
-                
-                node = TextNode(
-                    text=text,
-                    id_=node_id or str(id_),
-                    metadata=metadata_ or {}
+                    cursor.execute(sql, (query_vector_str, query_vector_str, similarity_top_k))
+                    rows = cursor.fetchall()
+
+            for id_, text, metadata_, node_id, distance in rows:
+                node_id = node_id or str(id_)
+                sim_score = 1.0 / (1.0 + distance)  # convert distance → similarity
+                scores[node_id] = (
+                    TextNode(text=text, id_=node_id, metadata=metadata_ or {}),
+                    sim_score
                 )
-                
-                # Convert distance to similarity score
-                similarity_score = 1.0 / (1.0 + distance)
-                
-                nodes.append(NodeWithScore(node=node, score=similarity_score))
-            
-            return nodes
-            
         except Exception as e:
-            print(f"ERROR: CustomPGVectorRetriever failed: {e}")
-            return []
+            logger.error(f"Semantic retrieval failed: {e}")
+        return scores
+
+    def _lexical_retrieve(self, query: str, similarity_top_k: int):
+        """Lexical retrieval using BM25 (ts_rank) with normalization and keyword boost."""
+        scores = {}
+        try:
+            with psycopg2.connect(self.database_url) as conn:
+                with conn.cursor() as cursor:
+                    sql = f"""
+                        SELECT id, text, metadata_, node_id,
+                               ts_rank(
+                                   setweight(to_tsvector('english', coalesce(text, '')), 'A') ||
+                                   setweight(to_tsvector('english', coalesce(node_id, '')), 'B'),
+                                   websearch_to_tsquery('english', %s),
+                                   1
+                               ) AS rank
+                        FROM {self.table_name}
+                        WHERE (to_tsvector('english', coalesce(text, '')) ||
+                               to_tsvector('english', coalesce(node_id, '')))
+                               @@ websearch_to_tsquery('english', %s)
+                        ORDER BY rank DESC
+                        LIMIT %s;
+                    """
+                    cursor.execute(sql, (query, query, similarity_top_k))
+                    rows = cursor.fetchall()
+
+            if not rows:
+                return scores
+
+            max_rank = max([row[4] for row in rows], default=1.0)
+            for id_, text, metadata_, node_id, rank in rows:
+                node_id = node_id or str(id_)
+                norm_rank = rank / max_rank
+                boost = self.keyword_boost if query.lower() in (text or "").lower() else 0
+                scores[node_id] = (
+                    TextNode(text=text or "", id_=node_id, metadata=metadata_ or {}),
+                    norm_rank + boost
+                )
+
+        except Exception as e:
+            logger.error(f"Lexical retrieval failed: {e}")
+        return scores
+
+    def retrieve(self, query: str, similarity_top_k: int = SIMILARITY_TOP_K):
+        """Hybrid retrieval with weighted score merge (alpha for semantic, 1-alpha for lexical)."""
+        semantic_scores = self._semantic_retrieve(query, similarity_top_k)
+        lexical_scores = self._lexical_retrieve(query, similarity_top_k)
+        all_nodes = {}
+
+        # Merge scores
+        for node_id, (node, sem_score) in semantic_scores.items():
+            lex_score = lexical_scores.get(node_id, (None, 0.0))[1]
+            final_score = self.alpha * sem_score + (1 - self.alpha) * lex_score
+            all_nodes[node_id] = NodeWithScore(node=node, score=final_score)
+
+        for node_id, (node, lex_score) in lexical_scores.items():
+            if node_id not in all_nodes:
+                sem_score = semantic_scores.get(node_id, (None, 0.0))[1]
+                final_score = self.alpha * sem_score + (1 - self.alpha) * lex_score
+                all_nodes[node_id] = NodeWithScore(node=node, score=final_score)
+
+        # Sort by score
+        return sorted(all_nodes.values(), key=lambda x: x.score, reverse=True)[:similarity_top_k]
 
 
 class LlamaIndexRetriever:
@@ -192,37 +249,37 @@ class LlamaIndexRetriever:
             return retriever.retrieve(query)
             
         except Exception as e:
-            print(f"ERROR: LlamaIndex retrieval failed: {e}")
+            logger.error(f"LlamaIndex retrieval failed: {e}")
             return []
 
 
-def get_retriever(strategy: str, use_primary: bool = True):
+def get_retriever(strategy: str, use_primary: bool = True, alpha: float = 0.5):
     """Get retriever instance based on strategy and preference"""
     DATABASE_URL = os.getenv("DATABASE_URL")
     table_name = get_table_name(strategy)
     embed_model = get_embedding_model()
     
     if use_primary:
-        return CustomPGVectorRetriever(DATABASE_URL, table_name, embed_model)
+        return CustomHybridRetriever(DATABASE_URL, table_name, embed_model, alpha)
     else:
         return LlamaIndexRetriever(DATABASE_URL, table_name, embed_model)
 
 
-def try_retrieval(strategy: str, use_primary: bool, query: str) -> tuple[List[NodeWithScore], str]:
+def try_retrieval(strategy: str, use_primary: bool, query: str, alpha: float = 0.5) -> tuple[List[NodeWithScore], str]:
     """Try retrieval with given configuration, return (nodes, description)"""
-    retriever_type = "CustomPGVectorRetriever" if use_primary else "LlamaIndexRetriever"
+    retriever_type = "CustomHybridRetriever" if use_primary else "LlamaIndexRetriever"
     priority = "primary" if use_primary else "fallback"
     
     try:
-        retriever = get_retriever(strategy, use_primary)
+        retriever = get_retriever(strategy, use_primary, alpha)
         nodes = retriever.retrieve(query, SIMILARITY_TOP_K)
         
         if nodes:
-            print(f"INFO: {retriever_type} with '{strategy}' strategy succeeded with {len(nodes)} nodes")
+            logger.info(f"{retriever_type} with '{strategy}' strategy succeeded with {len(nodes)} nodes")
             return nodes, f"{strategy} ({priority})"
             
     except Exception as e:
-        print(f"WARN: {retriever_type} with '{strategy}' strategy failed: {e}")
+        logger.warning(f"{retriever_type} with '{strategy}' strategy failed: {e}")
     
     return [], ""
 
@@ -245,10 +302,13 @@ def expand_section_query(query: str) -> list:
     return queries
 
 
-def retrieve_with_strategy(query: str, strategy: str) -> str:
-    """Single retrieval attempt - optimized for speed"""
-    # Single retrieval attempt using primary retriever
-    retriever = get_retriever(strategy, use_primary=True)
+def retrieve_with_strategy(query: str, strategy: str, alpha: float = None) -> str:
+    """Single retrieval attempt - optimized for speed with hybrid retrieval"""
+    if alpha is None:
+        alpha = float(os.getenv("HYBRID_ALPHA", HYBRID_ALPHA))
+    
+    # Single retrieval attempt using hybrid retriever
+    retriever = get_retriever(strategy, use_primary=True, alpha=alpha)
     nodes = retriever.retrieve(query)  # Use correct method name
     
     if not nodes:
@@ -260,9 +320,8 @@ def retrieve_with_strategy(query: str, strategy: str) -> str:
     if not meaningful_nodes:
         return "RETRIEVAL TASK COMPLETED: No relevant documents found for your query."
     
-    # Sort by score and take top results (reduced from 3 to 2 for speed)
-    meaningful_nodes.sort(key=lambda x: x.score or 0, reverse=True)
-    selected_nodes = meaningful_nodes[:3]  # Use all 3 retrieved documents
+    # Sort by score and take top results (already sorted by hybrid retriever)
+    selected_nodes = meaningful_nodes[:3]  # Use top 3 hybrid-scored documents
     
     # Format results - with tighter length limits for performance
     formatted_results = []
@@ -272,7 +331,7 @@ def retrieve_with_strategy(query: str, strategy: str) -> str:
         if len(text) > 800:  # Reduced from 1000 to 800
             text = text[:800] + "... [truncated for performance]"
         score = node_with_score.score or 0
-        formatted_results.append(f"Document {i} (relevance: {score:.3f}):\n{text}")
+        formatted_results.append(f"Document {i} (hybrid relevance: {score:.3f}):\n{text}")
     
     result_text = "RETRIEVAL TASK COMPLETED:\n\n" + "\n\n".join(formatted_results)
     
@@ -280,8 +339,9 @@ def retrieve_with_strategy(query: str, strategy: str) -> str:
     sources_info = {
         'sources': [{'document': n.node.metadata.get('source_document', n.node.metadata.get('file_name', 'Unknown')), 'score': n.score or 0} 
                    for n in selected_nodes],
-        'strategy': strategy,
-        'chunks_used': len(selected_nodes)
+        'strategy': f"hybrid_{strategy}",
+        'chunks_used': len(selected_nodes),
+        'alpha': alpha
     }
     save_sources_info(sources_info)
     
@@ -391,10 +451,16 @@ def document_retrieval_tool(query: Union[str, Dict[str, Any]]) -> str:
     
     # Extract query string from input
     search_query = extract_query_from_input(query)
+    logger.info(f"TOOL CALL #{_tool_call_counter}: Document Retrieval Tool called with query: '{search_query[:100]}...'")
     
     if not search_query:
+        logger.error(f"Could not extract a valid search query from: {query}")
         return f"Error: Could not extract a valid search query from: {query}"
 
     # Use current strategy - single attempt only
     current_strategy = get_current_strategy()
-    return retrieve_with_strategy(search_query, current_strategy)
+    logger.info(f"Using retrieval strategy: {current_strategy}")
+    
+    result = retrieve_with_strategy(search_query, current_strategy)
+    logger.info(f"TOOL CALL #{_tool_call_counter}: Document retrieval completed, returned {len(result)} characters")
+    return result
