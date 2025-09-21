@@ -87,11 +87,13 @@ def health_check():
         rag_available = True
     except ImportError:
         rag_available = False
+    # Get model info from environment
+    model_name = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
     
     return {
         "status": "healthy",
         "rag_available": rag_available,
-        "model": "Gemma 3:1b",
+        "model": model_name,
         "version": "2.1.0",
         "context_length": 4096
     }
@@ -102,6 +104,7 @@ def list_models():
     OpenAI-compatible endpoint to list available models.
     This is required for OpenWebUI to discover available models.
     """
+    model_name = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
     return {
         "object": "list",
         "data": [
@@ -113,8 +116,8 @@ def list_models():
                 "permission": [],
                 "root": "rag-search",
                 "parent": None,
-                "max_tokens": 4096,         # Production-optimized context for Gemma 3:1b
-                "context_length": 4096      # Production-optimized context for Gemma 3:1b
+                "max_tokens": 4096,         # Production-optimized context for the configured model
+                "context_length": 4096      # Production-optimized context for the configured model
             }
         ]
     }
@@ -347,11 +350,12 @@ if __name__ == "__main__":
     # Updated port and host configuration
     port = int(os.getenv("RAG_API_PORT", "8001"))
     host = os.getenv("RAG_API_HOST", "0.0.0.0")
+    model_name = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
     
-    print(f"Starting RAG API Server with Gemma 3:1b (Speed Optimized)...")
+    print(f"Starting RAG API Server with {model_name} (Speed Optimized)...")
     print(f"Server will run on: http://{host}:{port}")
     print(f"OpenWebUI endpoint: http://{host}:{port}/v1")
-    print(f"Model: Gemma 3:1b (1B parameters, Context: 8K tokens, Speed optimized)")
+    print(f"Model: {model_name} (Configurable via OLLAMA_MODEL environment variable)")
     
     # Configure uvicorn with appropriate timeouts
     uvicorn.run(

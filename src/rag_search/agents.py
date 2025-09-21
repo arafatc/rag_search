@@ -2,11 +2,12 @@
 from crewai import Agent, LLM
 from .tools import document_retrieval_tool
 
-# Initialize the Ollama LLM for the agents - optimized for speed
-# Use environment variable for base URL to support Docker deployment
+# Initialize the Ollama LLM for the agents - configurable model
+# Use environment variables for base URL and model to support Docker deployment
 ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
+ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")  # Configurable model, default to qwen2.5:1.5b
 ollama_llm = LLM(
-    model="ollama/gemma3:1b",  # Using gemma3:1b - lightweight but capable model
+    model=f"ollama/{ollama_model}",  # Using configurable model via environment variable
     base_url=ollama_base_url,
     temperature=0.0,  # Zero temperature for fastest, most deterministic responses
     timeout=120,  # Reduced timeout to force faster responses
