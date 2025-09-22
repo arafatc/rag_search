@@ -412,17 +412,26 @@ def retrieve_with_strategy(query: str, strategy: str, alpha: float = None) -> st
 
 
 def extract_query_from_input(data) -> str:
-    """Extract query string from input - minimalistic approach"""
+    """Extract query string from input - improved approach to handle agent context"""
     if isinstance(data, str):
         return data
     if isinstance(data, (int, float)):
         return str(data)
     if isinstance(data, dict):
-        # Check common keys
-        for key in ['description', 'query', 'q']:
+        # Check common keys for query content
+        for key in ['description', 'query', 'q', 'question', 'search_query', 'text', 'content']:
             if key in data:
                 value = data[key]
                 return str(value) if value is not None else ""
+        
+        # If no direct query key found, check if there's any string value that looks like a query
+        for key, value in data.items():
+            if isinstance(value, str) and len(value.strip()) > 10:  # Reasonable query length
+                return value.strip()
+        
+        # Last resort: convert the entire dict to string for debugging
+        return str(data)
+    
     return ""
 
 
@@ -506,7 +515,7 @@ Content: {truncated_content}
 @tool("Document Retrieval Tool")
 def document_retrieval_tool(query: Union[str, Dict[str, Any]]) -> str:
     """
-    Minimalistic document retrieval - single attempt, no retries
+    Retrieve relevant documents for a given query.
     """
     global _tool_call_counter
     _tool_call_counter += 1
@@ -519,7 +528,6 @@ def document_retrieval_tool(query: Union[str, Dict[str, Any]]) -> str:
         logger.error(f"Could not extract a valid search query from: {query}")
         return f"Error: Could not extract a valid search query from: {query}"
 
-    # Use current strategy - single attempt only
     current_strategy = get_current_strategy()
     logger.info(f"Using retrieval strategy: {current_strategy}")
     

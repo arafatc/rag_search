@@ -50,7 +50,7 @@ services:
       - RAG_API_PORT=8000
       - RAG_API_HOST=0.0.0.0
       - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=qwen2.5:1.5b       # gemma3:1b
+      - OLLAMA_MODEL=qwen2.5:1.5b       # phi:latest
       - EMBEDDING_MODEL=nomic-embed-text:latest  # Configurable embedding model
       - DEFAULT_RAG_STRATEGY=structure_aware # Use structure_aware as primary, semantic as fallback
       - PRIMARY_STRATEGY=structure_aware    # Primary retrieval strategy: structure_aware or semantic
