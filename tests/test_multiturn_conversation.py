@@ -17,7 +17,7 @@ def patient_test():
     
     print(" Patient Multi-Turn Conversation Test")
     print("=" * 50)
-    print("TIME:  Using 5-minute timeout per request...")
+    print("TIME:  Using 15-minute timeout per request...")
     
     # Turn 1: HR Policies
     print("\nNOTE: Turn 1: HR Policies")
@@ -89,12 +89,12 @@ def patient_api_call(url, messages, turn):
     try:
         start_time = time.time()
         
-        # Make the request with 5 minute timeout
+        # Make the request with 15 minute timeout
         response = requests.post(
             url, 
             json=payload, 
             headers={"Content-Type": "application/json"},
-            timeout=300  # 5 minutes
+            timeout=900  # 15 minutes
         )
         
         elapsed = time.time() - start_time
@@ -131,7 +131,7 @@ def monitor_progress():
 
 if __name__ == "__main__":
     print("STARTING: Starting Patient Multi-Turn Test")
-    print("This test uses 5-minute timeouts per request")
+    print("This test uses 15-minute timeouts per request")
     print()
     
     # Quick health check first

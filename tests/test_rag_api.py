@@ -16,7 +16,7 @@ load_dotenv(override=True)
 
 # Configuration
 BASE_URL = "http://localhost:8001"
-TIMEOUT = 360  # 6 minutes to accommodate 5-minute LLM timeout + buffer
+TIMEOUT = 960  # 16 minutes to accommodate 15-minute LLM timeout + buffer
 
 def test_query(query: str, expected_source: str = None):
     """Test a single query and measure performance"""
@@ -103,43 +103,96 @@ def main():
     print(f"Target URL: {BASE_URL}")
     print(f"Timeout: {TIMEOUT} seconds")
     
-    # Test queries with expected sources (all 9 from original test)
+    # Test queries with expected sources - updated comprehensive test set
     test_cases = [
+        # Abu Dhabi Procurement Standards
         {
-            "query": "If Im a non-citizen, what are the rules for me to get hired in a government job?",
-            "expected_source": "HR Bylaws"
-        },
-        {
-            "query": "What is Article (4) Delegation of Power?",
-            "expected_source": "HR Bylaws"
-        },
-        {
-            "query": "How long is the probation period for new employees and what happens if I dont pass it?",
-            "expected_source": "HR Bylaws"
-        },
-        {
-            "query": "What basic principles guide government procurement in Abu Dhabi?",
+            "query": "How do the \"Delivery Terms\" and \"Payment Terms\" relate to a \"Purchase Order\" within the procurement process described in this document?",
             "expected_source": "Abu Dhabi Procurement Standards"
         },
         {
-            "query": "What is Article (4): Compliance with Applicable Legislations",
+            "query": "Describe the relationship between \"Intellectual Property created during the tenure and framework of the contract\" (Foreground Intellectual Property) and the \"relevant Intellectual Property supplied by the contracting parties at the beginning of the engagement\" (Background Intellectual Property), as defined in the standards.",
             "expected_source": "Abu Dhabi Procurement Standards"
         },
         {
-            "query": "What ethical rules do procurement officers need to follow?",
+            "query": "Based on the introduction and scope, what is the primary purpose of the Abu Dhabi Procurement Standards, and how does it aim to achieve it?",
             "expected_source": "Abu Dhabi Procurement Standards"
         },
         {
-            "query": "Explain Article (65) Absence by Permission Hours",
+            "query": "Explain the significance of a \"Valid Exception Code\" in the context of issuing \"post factum Purchase Orders\" as outlined in the document.",
+            "expected_source": "Abu Dhabi Procurement Standards"
+        },
+        
+        # HR Bylaws
+        {
+            "query": "Outline the disciplinary actions and their corresponding financial rules violations as presented in the penalty clauses.",
             "expected_source": "HR Bylaws"
         },
         {
-            "query": "How are conflicts of interest managed for employees and also for procurement staff?",
-            "expected_source": None  # This query spans both documents
+            "query": "Based on the penalties section, what are the different levels of disciplinary actions for various infringements, and how do they relate to preserving pension or bonus rights?",
+            "expected_source": "HR Bylaws"
         },
         {
-            "query": "What do the HR bylaws say about hiring employees and what do the procurement standards say about terminating suppliers?",
-            "expected_source": None  # This query spans both documents
+            "query": "Summarize the overall objective of Decision No. (10) of 2020 as it relates to human resources in the Emirate of Abu Dhabi.",
+            "expected_source": "HR Bylaws"
+        },
+        {
+            "query": "Infer the hierarchical relationship between Law No. (6) of 2016 and Decision No. (10) of 2020, based on their descriptions in the document.",
+            "expected_source": "HR Bylaws"
+        },
+        
+        # Procurement Manual (Ariba Aligned)
+        {
+            "query": "Explain the roles of \"Team Grader\" and \"User Enablement Team\" within the context of \"SAP Ariba\" and their interdependencies.",
+            "expected_source": "Procurement Manual (Ariba Aligned)"
+        },
+        {
+            "query": "How does the concept of \"Supplier Manager System Groups\" relate to \"Supplier\" registration and qualification within the SAP Ariba framework?",
+            "expected_source": "Procurement Manual (Ariba Aligned)"
+        },
+        {
+            "query": "Based on the introduction and scope, what is the primary objective of aligning the Procurement Manual with SAP Ariba?",
+            "expected_source": "Procurement Manual (Ariba Aligned)"
+        },
+        {
+            "query": "Discuss how the manual's definitions of \"Technical Envelope\" and \"Technical and Commercial Envelope\" facilitate different aspects of the sourcing event process.",
+            "expected_source": "Procurement Manual (Ariba Aligned)"
+        },
+        
+        # Procurement Manual (Business Process)
+        {
+            "query": "Differentiate between \"Request for Proposal (RFP)\" and \"Request for Quotation (RFQ)\" based on their stated purposes and the type of information sought from suppliers.",
+            "expected_source": "Procurement Manual (Business Process)"
+        },
+        {
+            "query": "Illustrate the relationship between a \"Sole/Single Source\" tendering method and the concept of \"Supplier\" qualification within the procurement process.",
+            "expected_source": "Procurement Manual (Business Process)"
+        },
+        {
+            "query": "Based on the overall content, what is the main purpose of this Procurement Manual in relation to business processes?",
+            "expected_source": "Procurement Manual (Business Process)"
+        },
+        {
+            "query": "Explain how the definition of \"Reverse Auction (eAuction)\" reflects its role in achieving competitive bids for specific types of goods, services, and projects.",
+            "expected_source": "Procurement Manual (Business Process)"
+        },
+        
+        # Information Security
+        {
+            "query": "Explain the relationship between the risk-based approach and the \"Always Applicable\" controls as described in the UAE IA Standards. How should an implementing entity apply both concepts when determining their security controls?",
+            "expected_source": "Information Security"
+        },
+        {
+            "query": "What are the specific sub-controls listed under \"T5.2.3 USER SECURITY CREDENTIALS MANAGEMENT\"?",
+            "expected_source": "Information Security"
+        },
+        {
+            "query": "According to Annex C, what is the corresponding NIST SP 800-53 control for the UAE IA Standard \"M4.2.1 Screening\"?",
+            "expected_source": "Information Security"
+        },
+        {
+            "query": "What is the definition of \"Critical Entity\" as provided in Annex F of the UAE IA Standards?",
+            "expected_source": "Information Security"
         }
     ]
     

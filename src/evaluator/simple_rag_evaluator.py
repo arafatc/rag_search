@@ -68,7 +68,7 @@ class SimpleRAGEvaluator:
                     "max_tokens": 1000,
                     "temperature": 0.0
                 },
-                timeout=300  # 5 minute timeout
+                timeout=900  # 15 minute timeout
             )
             
             if response.status_code != 200:

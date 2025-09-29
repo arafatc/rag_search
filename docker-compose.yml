@@ -57,7 +57,7 @@ services:
       - SIMILARITY_TOP_K=3        # Number of documents to retrieve and select
       - HYBRID_ALPHA=0.3           # Weight between semantic (1.0) and lexical (0.0)
       - MAX_CONTEXT_CHARS=4000    # Maximum characters in retrieval context
-      - LLM_REQUEST_TIMEOUT=300   # LLM timeout in seconds (5 minutes)
+      - LLM_REQUEST_TIMEOUT=900   # LLM timeout in seconds (15 minutes)
     ports:
       - "8001:8000"
     depends_on:

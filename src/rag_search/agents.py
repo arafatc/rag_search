@@ -8,18 +8,18 @@ ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:1143
 ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")  # Configurable model, default to qwen2.5:1.5b
 
 # LLM timeout configuration
-LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "300"))     # 5 minutes timeout
+LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "900"))     # 15 minutes timeout
 LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "2"))               # Retry attempts
 
 ollama_llm = LLM(
     model=f"ollama/{ollama_model}",  # Using configurable model via environment variable
     base_url=ollama_base_url,
-    temperature=0.0,  # Zero temperature for fastest, most deterministic responses
-    timeout=LLM_REQUEST_TIMEOUT,  # Configurable timeout (default 5 minutes)
+    temperature=0.1,  # Slightly higher for better completion
+    timeout=LLM_REQUEST_TIMEOUT,  # Configurable timeout (default 15 minutes)
     verbose=False,  # Disable verbose logging to reduce overhead
-    # Optimized token configuration for speed
-    max_tokens=4096,  # Reduced for faster generation
-    num_ctx=8192,     # Smaller context window for speed
+    # Optimized token configuration for complete responses  
+    max_tokens=6144,  # Moderate size for 2-paragraph responses
+    num_ctx=16384,    # Larger context window for better understanding
     top_p=0.9,        # Higher for more predictable responses
     repeat_penalty=1.1,  # Higher penalty to prevent repetition
 )
@@ -46,8 +46,9 @@ insight_synthesizer = Agent(
     role='Answer Writer',
     goal='Write concise, accurate answers using only the document content provided.',
     backstory=(
-        "You are a fast document summarizer. Write direct answers from the provided text only. "
-        "Keep responses focused and under 200 words. No external knowledge."
+        "You are an expert document synthesizer. Write complete, well-structured answers from the provided text only. "
+        "Always provide exactly 2 complete paragraphs with full sentences. Never write more than 2 paragraphs. "
+        "Ensure each sentence is complete - never stop mid-sentence. No external knowledge beyond the provided documents."
     ),
     llm=ollama_llm,
     verbose=True,
