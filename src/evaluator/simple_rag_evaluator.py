@@ -41,11 +41,11 @@ class SimpleRAGEvaluator:
                             "difficulty": data.get("difficulty", "medium")
                         })
             
-            print(f"📊 Loaded {len(questions)} evaluation questions from dataset")
+            print(f" Loaded {len(questions)} evaluation questions from dataset")
             return questions
             
         except Exception as e:
-            print(f"❌ ERROR: Failed to load evaluation dataset: {e}")
+            print(f" ERROR: Failed to load evaluation dataset: {e}")
             return []
     
     def get_strategy_response(self, strategy: str, question: str) -> Dict[str, Any]:
@@ -165,14 +165,14 @@ class SimpleRAGEvaluator:
             from ragas import evaluate
             from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
             
-            print(f"    🔬 Running RAGAs metrics for {len(test_data)} questions...")
+            print(f"    Running RAGAs metrics for {len(test_data)} questions...")
             
             # Debug: Print first item structure
             if test_data:
-                print(f"    🔍 Debug - First item keys: {list(test_data[0].keys())}")
-                print(f"    🔍 Debug - Contexts type: {type(test_data[0]['contexts'])}")
-                print(f"    🔍 Debug - Sample contexts: {test_data[0]['contexts'][:1] if test_data[0]['contexts'] else 'None'}")
-            
+                print(f"    Debug - First item keys: {list(test_data[0].keys())}")
+                print(f"    Debug - Contexts type: {type(test_data[0]['contexts'])}")
+                print(f"    Debug - Sample contexts: {test_data[0]['contexts'][:1] if test_data[0]['contexts'] else 'None'}")
+
             # Ensure contexts are properly formatted as lists of strings
             formatted_data = []
             for item in test_data:
@@ -191,8 +191,8 @@ class SimpleRAGEvaluator:
             # Run evaluation
             result = evaluate(dataset, metrics=[faithfulness, answer_relevancy, context_precision, context_recall])
             
-            print(f"    🔍 Debug - RAGAs result type: {type(result)}")
-            print(f"    🔍 Debug - RAGAs result attributes: {dir(result)}")
+            print(f"     Debug - RAGAs result type: {type(result)}")
+            print(f"     Debug - RAGAs result attributes: {dir(result)}")
             
             # Extract scores - handle both EvaluationResult object and dictionary formats
             def extract_score(metric_name):
@@ -206,7 +206,7 @@ class SimpleRAGEvaluator:
                                 score_value = score_dict[metric_name]
                                 # Handle NaN values
                                 if pd.isna(score_value):
-                                    print(f"    ⚠️  Warning: {metric_name} returned NaN")
+                                    print(f"      Warning: {metric_name} returned NaN")
                                     return 0.0
                                 return float(score_value)
                         else:
@@ -215,7 +215,7 @@ class SimpleRAGEvaluator:
                             if len(score_series) > 0:
                                 score_value = score_series.iloc[0]
                                 if pd.isna(score_value):
-                                    print(f"    ⚠️  Warning: {metric_name} returned NaN")
+                                    print(f"      Warning: {metric_name} returned NaN")
                                     return 0.0
                                 return float(score_value)
                     
@@ -225,16 +225,16 @@ class SimpleRAGEvaluator:
                         if metric_name in df.columns and len(df) > 0:
                             score_value = df[metric_name].iloc[0]
                             if pd.isna(score_value):
-                                print(f"    ⚠️  Warning: {metric_name} returned NaN")
+                                print(f"      Warning: {metric_name} returned NaN")
                                 return 0.0
                             return float(score_value)
                     
                     # Final fallback
-                    print(f"    ⚠️  Warning: Could not extract {metric_name}, using 0.0")
+                    print(f"      Warning: Could not extract {metric_name}, using 0.0")
                     return 0.0
                     
                 except Exception as e:
-                    print(f"    ❌ Error extracting {metric_name}: {e}")
+                    print(f"     Error extracting {metric_name}: {e}")
                     return 0.0
             
             scores = {
@@ -254,26 +254,26 @@ class SimpleRAGEvaluator:
             return scores
             
         except ImportError as e:
-            print(f"    ⚠️  RAGAs not available: {e}")
-            print(f"    📦 Install with: pipenv install ragas datasets")
+            print(f"      RAGAs not available: {e}")
+            print(f"     Install with: pipenv install ragas datasets")
             return None
             
         except Exception as e:
-            print(f"    ❌ RAGAs evaluation failed: {e}")
+            print(f"     RAGAs evaluation failed: {e}")
             return None
     
     def evaluate_strategy(self, strategy: str, max_questions: int = None) -> Optional[Dict[str, Any]]:
         """Evaluate a single strategy"""
-        print(f"\n🔬 EVALUATING STRATEGY: {strategy.upper()}")
+        print(f"\n EVALUATING STRATEGY: {strategy.upper()}")
         print("-" * 50)
         
         if not self.test_questions:
-            print("❌ No evaluation questions available!")
+            print(" No evaluation questions available!")
             return None
         
         # Limit questions for testing
         questions_to_test = self.test_questions[:max_questions] if max_questions else self.test_questions
-        print(f"📝 Testing {len(questions_to_test)} questions")
+        print(f" Testing {len(questions_to_test)} questions")
         
         # Get responses for all test questions
         test_data = []
@@ -292,16 +292,16 @@ class SimpleRAGEvaluator:
                     "ground_truth": test_item['ground_truth']
                 })
                 successful_queries += 1
-                print(f"    ✅ Retrieved {response_data['retrieved_chunks']} chunks")
+                print(f"     Retrieved {response_data['retrieved_chunks']} chunks")
             else:
-                print(f"    ❌ Failed: {response_data.get('error', 'Unknown error')}")
+                print(f"     Failed: {response_data.get('error', 'Unknown error')}")
         
         if not test_data:
-            print(f"❌ No successful queries for {strategy}")
+            print(f" No successful queries for {strategy}")
             return None
-        
-        print(f"📊 Successfully processed {successful_queries}/{len(questions_to_test)} queries")
-        
+
+        print(f" Successfully processed {successful_queries}/{len(questions_to_test)} queries")
+
         # Run RAGAs evaluation
         ragas_scores = self.run_ragas_evaluation(strategy, test_data)
         
@@ -318,17 +318,22 @@ class SimpleRAGEvaluator:
         if ragas_scores:
             result['ragas_scores'] = ragas_scores
             result['overall_score'] = ragas_scores['overall_score']
-            print(f"  📈 RAGAs Scores:")
-            print(f"     Faithfulness: {ragas_scores['faithfulness']:.3f}")
-            print(f"     Answer Relevancy: {ragas_scores['answer_relevancy']:.3f}")
-            print(f"     Context Precision: {ragas_scores['context_precision']:.3f}")
-            print(f"     Context Recall: {ragas_scores['context_recall']:.3f}")
-            print(f"     Overall Score: {ragas_scores['overall_score']:.3f}")
+            print(f"   RAGAs Scores:")
+            
+            # Only print scores that are valid (not NaN and not 0.0)
+            for metric_name, score in ragas_scores.items():
+                if metric_name == 'overall_score':
+                    continue  # Handle separately
+                if not pd.isna(score) and score != 0.0:
+                    metric_display = metric_name.replace('_', ' ').title()
+                    print(f"   {metric_display}: {score:.3f}")
+            
+            print(f"   Overall Score: {ragas_scores['overall_score']:.3f}")
         else:
             result['overall_score'] = result['success_rate']  # Use success rate as fallback
-            print(f"  ⚠️  RAGAs evaluation not available - using success rate as score")
-        
-        print(f"✅ {strategy.upper()} evaluation complete!")
+            print(f"   RAGAs evaluation not available - using success rate as score")
+
+        print(f" {strategy.upper()} evaluation complete!")
         return result
 
 
@@ -343,7 +348,7 @@ def evaluate_all_strategies(max_questions: int = None) -> Dict[str, Any]:
     """Evaluate all available strategies"""
     results = {}
     
-    print(f"🎯 EVALUATING ALL STRATEGIES")
+    print(f" EVALUATING ALL STRATEGIES")
     print("=" * 60)
     
     for strategy in evaluator.strategies:
@@ -357,7 +362,7 @@ def evaluate_all_strategies(max_questions: int = None) -> Dict[str, Any]:
             results[strategy] = {'error': str(e)}
     
     # Compare strategies
-    print(f"\n🏆 STRATEGY COMPARISON:")
+    print(f"\n STRATEGY COMPARISON:")
     print("=" * 60)
     
     valid_results = {k: v for k, v in results.items() if 'error' not in v}
@@ -372,7 +377,19 @@ def evaluate_all_strategies(max_questions: int = None) -> Dict[str, Any]:
             print(f"   Avg Chunks: {result['average_chunks']:.1f}")
             if 'ragas_scores' in result:
                 ragas = result['ragas_scores']
-                print(f"   RAGAs - F:{ragas['faithfulness']:.2f} AR:{ragas['answer_relevancy']:.2f} CP:{ragas['context_precision']:.2f} CR:{ragas['context_recall']:.2f}")
+                # Only show valid scores (not NaN and not 0.0)
+                score_parts = []
+                if not pd.isna(ragas['faithfulness']) and ragas['faithfulness'] != 0.0:
+                    score_parts.append(f"F:{ragas['faithfulness']:.2f}")
+                if not pd.isna(ragas['answer_relevancy']) and ragas['answer_relevancy'] != 0.0:
+                    score_parts.append(f"AR:{ragas['answer_relevancy']:.2f}")
+                if not pd.isna(ragas['context_precision']) and ragas['context_precision'] != 0.0:
+                    score_parts.append(f"CP:{ragas['context_precision']:.2f}")
+                if not pd.isna(ragas['context_recall']) and ragas['context_recall'] != 0.0:
+                    score_parts.append(f"CR:{ragas['context_recall']:.2f}")
+                
+                if score_parts:
+                    print(f"   RAGAs - {' '.join(score_parts)}")
             print()
     
     return results
@@ -390,7 +407,7 @@ if __name__ == "__main__":
         elif strategy in evaluator.strategies:
             evaluate_strategy(strategy, max_q)
         else:
-            print(f"❌ Invalid strategy. Choose from: {', '.join(evaluator.strategies)} or 'all'")
+            print(f" Invalid strategy. Choose from: {', '.join(evaluator.strategies)} or 'all'")
     else:
         print("Usage: python simple_rag_evaluator.py <strategy|all> [max_questions]")
         print(f"Available strategies: {', '.join(evaluator.strategies)}")

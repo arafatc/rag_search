@@ -52,11 +52,12 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=qwen2.5:1.5b       # phi:latest
       - EMBEDDING_MODEL=nomic-embed-text:latest  # Configurable embedding model
-      - DEFAULT_RAG_STRATEGY=structure_aware # Use structure_aware as primary, semantic as fallback
-      - PRIMARY_STRATEGY=structure_aware    # Primary retrieval strategy: structure_aware or semantic
-      - FALLBACK_STRATEGY=semantic         # Fallback retrieval strategy
+      - DEFAULT_RAG_STRATEGY=structure_aware # Use structure_aware as primary,semantic as fallback
+      - PRIMARY_STRATEGY=structure_aware    # Primary retrieval strategy: structure_aware, semantic, or contextual_rag
       - SIMILARITY_TOP_K=3        # Number of documents to retrieve and select
-      - HYBRID_ALPHA=0.6         # Weight between semantic (1.0) and lexical (0.0)
+      - HYBRID_ALPHA=0.3           # Weight between semantic (1.0) and lexical (0.0)
+      - MAX_CONTEXT_CHARS=4000    # Maximum characters in retrieval context
+      - LLM_REQUEST_TIMEOUT=300   # LLM timeout in seconds (5 minutes)
     ports:
       - "8001:8000"
     depends_on:

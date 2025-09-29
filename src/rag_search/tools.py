@@ -25,9 +25,13 @@ load_dotenv()
 # Configuration - now configurable via environment variables
 PRIMARY_STRATEGY = os.getenv("PRIMARY_STRATEGY", "structure_aware")    # Configurable via docker-compose
 FALLBACK_STRATEGY = os.getenv("FALLBACK_STRATEGY", "semantic")         # Configurable via docker-compose
-MAX_CONTEXT_CHARS = 4000
+MAX_CONTEXT_CHARS = int(os.getenv("MAX_CONTEXT_CHARS", "4000"))        # Made configurable
 SIMILARITY_TOP_K = int(os.getenv("SIMILARITY_TOP_K", "3"))  # Configurable via docker-compose
 HYBRID_ALPHA = float(os.getenv("HYBRID_ALPHA", "0.6"))      # Configurable via docker-compose
+
+# LLM timeout configuration
+LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "300"))     # 5 minutes timeout
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "2"))               # Retry attempts
 
 # Global state
 _tool_call_counter = 0
@@ -76,7 +80,7 @@ def get_embedding_model():
     return OllamaEmbedding(
         model_name=embedding_model,
         base_url=ollama_base_url,
-        request_timeout=30.0  # Reduced from 60 to 30 seconds
+        request_timeout=60.0  # Reduced from 60 to 30 seconds
     )
 
 
@@ -84,7 +88,8 @@ def get_table_name(strategy: str) -> str:
     """Get table name for given strategy"""
     table_mapping = {
         "structure_aware": "data_llamaindex_enhanced_structure_aware",
-        "semantic": "data_llamaindex_enhanced_semantic"
+        "semantic": "data_llamaindex_enhanced_semantic",
+        "contextual_rag": "data_llamaindex_enhanced_contextual_rag"
     }
     
     if strategy not in table_mapping:
@@ -385,29 +390,40 @@ def retrieve_with_strategy(query: str, strategy: str, alpha: float = None) -> st
     # Sort by score and take top results (already sorted by hybrid retriever)
     selected_nodes = meaningful_nodes[:3]  # Use top 3 hybrid-scored documents
     
-    # Format results - with tighter length limits for performance
+    # Format results - with balanced approach for quality vs performance
     formatted_results = []
+    total_chars = 0
+    max_total_chars = int(os.getenv("MAX_CONTEXT_CHARS", "4000"))
+    doc_char_limit = 800  # Fixed document limit
+
     for i, node_with_score in enumerate(selected_nodes, 1):
         text = node_with_score.node.text.strip()
         # Tighter text length limit for faster LLM processing
-        if len(text) > 800:  # Reduced from 1000 to 800
-            text = text[:800] + "... [truncated for performance]"
+        if len(text) > doc_char_limit:
+            text = text[:doc_char_limit] + "... [truncated for performance]"
         score = node_with_score.score or 0
-        formatted_results.append(f"Document {i} (hybrid relevance: {score:.3f}):\n{text}")
+        doc_text = f"Document {i} (score: {score:.3f}):\n{text}"
+        
+        # Stop if adding this would exceed our limit
+        if total_chars + len(doc_text) > max_total_chars:
+            break
+            
+        formatted_results.append(doc_text)
+        total_chars += len(doc_text)
     
-    result_text = "RETRIEVAL TASK COMPLETED:\n\n" + "\n\n".join(formatted_results)
+    result_text = "\n\n".join(formatted_results)
     
     # Save source info for debugging
     sources_info = {
         'sources': [{'document': n.node.metadata.get('source_document', n.node.metadata.get('file_name', 'Unknown')), 'score': n.score or 0} 
                    for n in selected_nodes],
         'strategy': f"hybrid_{strategy}",
-        'chunks_used': len(selected_nodes),
+        'chunks_used': len(formatted_results),  # Use actual formatted results count
         'alpha': alpha
     }
     save_sources_info(sources_info)
     
-    # Return concise result
+    # Return result with single prefix
     return f"RETRIEVAL TASK COMPLETED:\n\n{result_text}"
 
 

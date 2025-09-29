@@ -16,7 +16,7 @@ load_dotenv(override=True)
 
 # Configuration
 BASE_URL = "http://localhost:8001"
-TIMEOUT = 360  # Increased to 6 minutes to match processing time
+TIMEOUT = 360  # 6 minutes to accommodate 5-minute LLM timeout + buffer
 
 def test_query(query: str, expected_source: str = None):
     """Test a single query and measure performance"""
@@ -49,7 +49,9 @@ def test_query(query: str, expected_source: str = None):
             
             print(f"Status: SUCCESS")
             print(f"Answer length: {len(answer)} characters")
-            print(f"Answer preview: {answer[:200]}...")
+            print(f"Full answer:\n{'-'*60}")
+            print(answer)
+            print(f"{'-'*60}")
             
             if expected_source:
                 if expected_source.lower() in answer.lower():
